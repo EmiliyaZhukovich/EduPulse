@@ -1,0 +1,94 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: edupulse_db
+    environment:
+      POSTGRES_MULTIPLE_DATABASES: edupulse_db,keycloak_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    ports:
+      - "5432:5432"
+    networks:
+      - edupulse_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: edupulse_backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      KEYCLOAK_URL: ${KEYCLOAK_URL}
+      KEYCLOAK_EXTERNAL_URL: ${KEYCLOAK_EXTERNAL_URL}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - /tmp:/tmp
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - edupulse_network
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  keycloak:
+    build:
+      context: ./keycloak
+      dockerfile: Dockerfile
+    container_name: edupulse_keycloak
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: ${KC_DB_URL}
+      KC_DB_USERNAME: ${KC_DB_USERNAME}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      KC_DB_SCHEMA: public
+      KC_HTTP_ENABLED: 'true'
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HEALTH_ENABLED: 'true'
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 3000
+      KC_HOSTNAME_PATH: /auth
+      KC_PROXY_HEADERS: xforwarded
+      KC_PROXY: edge
+    command:
+      - start-dev
+      - --spi-authorization-policy-js-upload-enabled=true
+      - --import-realm
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    networks:
+      - edupulse_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: edupulse_frontend
+    ports:
+      - "3000:3000"
+      # - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - edupulse_network
+
+volumes:
+  postgres_data:
+
+networks:
+  edupulse_network:
+    driver: bridge

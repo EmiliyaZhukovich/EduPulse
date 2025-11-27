@@ -1,0 +1,36 @@
+{
+  "realm": "psycho-realm",
+  "enabled": true,
+  "displayName": "Psycho App Realm",
+  "groups": [
+    {
+      "name": "curators",
+      "path": "/curators"
+    },
+    {
+      "name": "admins",
+      "path": "/admins"
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "psycho-client",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "/auth",
+      "defaultClientScopes": [
+        "web-origins",
+        "roles",
+        "profile",
+        "email"
+      ]
+    }
+  ]
+}
